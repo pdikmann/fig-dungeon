@@ -1,8 +1,8 @@
 /* some style */
 
 .field {
-    /* position: relative; */
-    width: calc( 52px * 9 );
+    position: relative;
+    width: calc( 50px * 9 );
 }
 
 .block {
@@ -13,12 +13,22 @@
     height: 48px;
 }
 
-.player {
-    position: relative;
+.player, .enemy {
+    position: absolute;
     display: block;
     width: 50px;
     height: 50px;
     top: 0px;
     left: 0px;
-    background-color: magenta;
+    transition-property: top, left;
+    transition-duration: 0.5s;
+}
+
+.player {
+     background-color: magenta;
+}
+
+.enemy {
+    background-color: green;
+    z-index: -1;
 }
