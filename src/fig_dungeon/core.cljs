@@ -1,3 +1,8 @@
+;; ideas:
+;; - buy upgrades with energy: more energy per enemy drop, faster movement (e.g. frequent enemy pause), more enemy spawns (less cooldown between spawns)
+;; - increase difficulty by removing floors (so player can't move on it, enemies die on it)
+;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
+
 (ns fig-dungeon.core
   (:require [reagent.core :as reagent :refer [atom]]
             [fig-dungeon.common :refer [random-dir
@@ -163,7 +168,8 @@
                     :class (if (:dead e)
                              "dead"
                              nil)}
-        (str (:dir e))]))
+        ;;(str (:dir e))
+        ]))
     ;; Grid
     (for [y (range 9)
           x (range 9)]
