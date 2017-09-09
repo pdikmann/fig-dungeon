@@ -20,7 +20,7 @@
     height: 50px;
     top: 0px;
     left: 0px;
-    transition-property: top, left;
+    transition-property: top, left, opacity;
     transition-duration: 0.5s;
     border-radius: 25px;
 }
@@ -33,6 +33,14 @@
 .enemy {
     background-color: green;
     /* z-index: -1; */
+}
+
+.dead {
+    opacity: 0;
+}
+
+.foo {
+    opacity: 0.5;
 }
 
 .energy {

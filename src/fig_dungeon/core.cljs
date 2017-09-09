@@ -16,8 +16,27 @@
 
 (defonce app-state (atom initial-state))
 
+(def counter 0)
+
+(defn my-gensym []
+  (set! counter (inc counter)))
+
 (defn init []
   (reset! app-state initial-state))
+
+(defn move-enemy [e]
+  (if (:dead e)
+    e
+    (case (:dir e)
+      :up (update e :y dec)
+      :down (update e :y inc)
+      :left (update e :x dec)
+      :right (update e :x inc))))
+
+(defn move-enemies []
+  (swap! app-state
+         update :enemies
+         #(mapv #'move-enemy %)))
 
 (defn create-enemy []
   (let [dir (random-dir)
@@ -29,19 +48,10 @@
               :right {:x 0 :y pos})]
     (if (at-same-position? nme (:player @app-state))
       (recur)
-      (assoc nme :dir dir :id (gensym)))))
-
-(defn move-enemy [e]
-  (case (:dir e)
-    :up (update e :y dec)
-    :down (update e :y inc)
-    :left (update e :x dec)
-    :right (update e :x inc)))
-
-(defn move-enemies []
-  (swap! app-state
-         update :enemies
-         #(map #'move-enemy %)))
+      (assoc nme
+             :dir dir
+             :id (my-gensym)
+             :dead false))))
 
 (defn spawn-enemy []
   (when (= 0 (mod (:moves @app-state) 3))
@@ -54,26 +64,39 @@
         at-player-position? (fn [e]
                               (at-same-position? e player-pos))
         collection (filter at-player-position?
-                           (:enemies @app-state))]
+                           (:enemies @app-state))
+        deads (mapv (fn [e] (assoc e :dead true))
+                    collection)]
+    (println "coll" collection)
+    (println "deads" deads)
     (when (not (empty? collection))
       (swap! app-state
              (fn [s]
                (-> s
                    (update-in [:player :energy] #(+ % (* 4 (count collection))))
-                   (update :enemies #(remove at-player-position? %))))))))
+                   (update :enemies #(vec (remove at-player-position? %)))
+                   (update :enemies (fn [es]
+                                      (apply conj es deads))))))
+      (println "nmes" (:enemies @app-state)))))
 
-(defn clean-up-enemies []
+(defn remove-dead-enemies []
+  (swap! app-state
+         update :enemies
+         (fn [es] (vec (remove #(:dead %) es)))))
+
+(defn remove-runaway-enemies []
   (swap!
    app-state
-   update :enemies #(remove out-of-bounds? %)))
+   update :enemies #(vec (remove out-of-bounds? %))))
 
 (defn opponents-move []
   "called whenever the player moves"
+  (remove-dead-enemies)
   (collect-enemy)
   (move-enemies)
-  ;;(collect-enemy)
+  (collect-enemy)
   (spawn-enemy)
-  (clean-up-enemies))
+  (remove-runaway-enemies))
 
 ;; (defn toggle-player []
 ;;   (swap!
@@ -92,7 +115,7 @@
    (when (and ;;(-> @app-state :player :active)
           (< 0 (-> @app-state :player :energy))
           (not (out-of-bounds? {:x x :y y})))
-     (collect-enemy)
+     ;;(collect-enemy)
      (swap!
       app-state
       #(-> %
@@ -132,7 +155,10 @@
     (doall
      (for [e (:enemies @app-state)]
        ^{:key (:id e)}
-       [:div.enemy {:style (position-style e)}
+       [:div.enemy {:style (position-style e)
+                    :class (if (:dead e)
+                             "dead"
+                             nil)}
         (str (:dir e))]))
     ;; Grid
     (for [y (range 9)
