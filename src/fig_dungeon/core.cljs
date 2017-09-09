@@ -61,22 +61,21 @@
 
 (defn collect-enemy []
   (let [player-pos (:player @app-state)
-        at-player-position? (fn [e]
-                              (at-same-position? e player-pos))
-        collection (filter at-player-position?
-                           (:enemies @app-state))
-        deads (mapv (fn [e] (assoc e :dead true))
-                    collection)]
-    (println "coll" collection)
-    (println "deads" deads)
+        at-player-position? #(at-same-position? % player-pos)
+        collection (filter at-player-position? (:enemies @app-state))
+        ]
     (when (not (empty? collection))
       (swap! app-state
              (fn [s]
                (-> s
                    (update-in [:player :energy] #(+ % (* 4 (count collection))))
-                   (update :enemies #(vec (remove at-player-position? %)))
                    (update :enemies (fn [es]
-                                      (apply conj es deads))))))
+                                      (mapv (fn [e]
+                                              (if (at-player-position? e)
+                                                (assoc e :dead true)
+                                                e))
+                                            es)))
+                   )))
       (println "nmes" (:enemies @app-state)))))
 
 (defn remove-dead-enemies []
@@ -87,7 +86,12 @@
 (defn remove-runaway-enemies []
   (swap!
    app-state
-   update :enemies #(vec (remove out-of-bounds? %))))
+   update :enemies
+   (fn [es]
+     (mapv #(if (out-of-bounds? %)
+              (assoc % :dead true)
+              %)
+           es))))
 
 (defn opponents-move []
   "called whenever the player moves"
