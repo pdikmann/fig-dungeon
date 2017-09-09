@@ -2,10 +2,12 @@
 ;; - buy upgrades with energy: more energy per enemy drop, faster movement (e.g. frequent enemy pause), more enemy spawns (less cooldown between spawns)
 ;; - increase difficulty by removing floors (so player can't move on it, enemies die on it)
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
+;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
 
 (ns fig-dungeon.core
   (:require [reagent.core :as reagent :refer [atom]]
-            [fig-dungeon.common :refer [random-dir
+            [fig-dungeon.common :refer [gridsize
+                                        random-dir
                                         random
                                         at-same-position?
                                         out-of-bounds?]]))
@@ -13,10 +15,8 @@
 (enable-console-print!)
 
 (def initial-state {:enemies []
-                    ;;:id-counter 0
                     :moves 0
-                    :player {;;:active false
-                             :energy 10
+                    :player {:energy 10
                              :x 4 :y 4}})
 
 (defonce app-state (atom initial-state))
@@ -44,12 +44,14 @@
          #(mapv #'move-enemy %)))
 
 (defn create-enemy []
+  "introduce one new enemy around the edge of the playing field."
   (let [dir (random-dir)
-        pos (random 8)
+        max (dec gridsize)
+        pos (random max)
         nme (case dir
-              :up    {:x pos :y 8}
+              :up    {:x pos :y max}
               :down  {:x pos :y 0}
-              :left  {:x 8 :y pos}
+              :left  {:x max :y pos}
               :right {:x 0 :y pos})]
     (if (at-same-position? nme (:player @app-state))
       (recur)
@@ -59,12 +61,14 @@
              :dead false))))
 
 (defn spawn-enemy []
+  "spawn an enemy in regular intervals (every n turns)."
   (when (= 0 (mod (:moves @app-state) 3))
     (swap! app-state
            update :enemies
            #(conj % (create-enemy)))))
 
 (defn collect-enemy []
+  "kill enemies at player position and increase player energy."
   (let [player-pos (:player @app-state)
         at-player-position? #(at-same-position? % player-pos)
         collection (filter at-player-position? (:enemies @app-state))
@@ -79,16 +83,14 @@
                                               (if (at-player-position? e)
                                                 (assoc e :dead true)
                                                 e))
-                                            es)))
-                   )))
-      (println "nmes" (:enemies @app-state)))))
+                                            es)))))))))
 
 (defn remove-dead-enemies []
   (swap! app-state
          update :enemies
          (fn [es] (vec (remove #(:dead %) es)))))
 
-(defn remove-runaway-enemies []
+(defn kill-out-of-bound-enemies []
   (swap!
    app-state
    update :enemies
@@ -99,18 +101,13 @@
            es))))
 
 (defn opponents-move []
-  "called whenever the player moves"
+  "called after the player moves."
   (remove-dead-enemies)
   (collect-enemy)
   (move-enemies)
   (collect-enemy)
   (spawn-enemy)
-  (remove-runaway-enemies))
-
-;; (defn toggle-player []
-;;   (swap!
-;;    app-state
-;;    update-in [:player :active] not))
+  (kill-out-of-bound-enemies))
 
 (defn move-player 
   ([dir]
@@ -133,10 +130,6 @@
            (update :moves inc)))
      (opponents-move))))
 
-;; (defn activate-player []
-;;   (when (not (:active (:player @app-state)))
-;;     (swap! app-state assoc-in [:player :active] true)))
-
 (defn position-style [thing]
   {:top (* 50 (:y thing))
    :left (* 50 (:x thing))})
@@ -152,14 +145,12 @@
 
 (defn hello-world []
   [:div.main 
-   {:tab-index 1
+   {:tab-index 1 ; enables focus, to catch keyboard events
     :on-key-down #'key-down}
    [:div.field
     ;; Player
     [:div.player
-     {:style (position-style (:player @app-state))
-      ;;:on-click #'toggle-player
-      }]
+     {:style (position-style (:player @app-state))}]
     ;; Enemies
     (doall
      (for [e (:enemies @app-state)]
@@ -167,13 +158,11 @@
        [:div.enemy {:style (position-style e)
                     :class (if (:dead e)
                              "dead"
-                             nil)}
-        ;;(str (:dir e))
-        ]))
+                             nil)}]))
     ;; Grid
-    (for [y (range 9)
-          x (range 9)]
-      ^{:key (+ x (* y 9))}
+    (for [y (range gridsize)
+          x (range gridsize)]
+      ^{:key (+ x (* y gridsize))}
       [:div.block])]
    [:br {:style {:clear "both"}}]
    ;; GUI
