@@ -152,9 +152,9 @@
 
 (defn hello-world []
   [:div.main 
+   {:tab-index 1
+    :on-key-down #'key-down}
    [:div.field
-    {:tab-index 1
-     :on-key-down #'key-down}
     ;; Player
     [:div.player
      {:style (position-style (:player @app-state))
@@ -174,18 +174,23 @@
     (for [y (range 9)
           x (range 9)]
       ^{:key (+ x (* y 9))}
-      [:div.block
-       ;;{:on-mouse-enter (fn [] (move-player x y))}
-       ])]
-   
+      [:div.block])]
    [:br {:style {:clear "both"}}]
+   ;; GUI
    [:div.energy
     {:style {:width (* 20 (-> @app-state :player :energy))}}]
    [:p
     "energy:" (str (-> @app-state :player :energy)) [:br]
-    "moves:" (str (:moves @app-state)) [:br]
-    ;;"gensym:" (str (:id-counter @app-state))
-    ]
+    "moves:" (str (:moves @app-state)) [:br]]
+   ;; Mobile Controls
+   [:div.controls
+    (for [dir '(:up :right :left :down)]
+      ^{:key dir}
+      [:div.button
+       {:on-touch-start (fn [e]
+                          (.preventDefault e)
+                          (.stopPropagation e)
+                          (move-player dir))}])]
    ])
 
 (reagent/render-component [hello-world]
