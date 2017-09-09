@@ -8,7 +8,7 @@
 .block {
     display: block;
     float: left;
-    border: 1px solid black;
+    border: 1px solid whitesmoke;
     width: 48px;
     height: 48px;
 }
@@ -22,13 +22,22 @@
     left: 0px;
     transition-property: top, left;
     transition-duration: 0.5s;
+    border-radius: 25px;
 }
 
 .player {
      background-color: magenta;
+     z-index: 1;
 }
 
 .enemy {
     background-color: green;
-    z-index: -1;
+    /* z-index: -1; */
+}
+
+.energy {
+    display: block;
+    height: 20px;
+    max-width: calc( 50px * 9 );
+    background-color: green;
 }

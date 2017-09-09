@@ -8,9 +8,9 @@
 (enable-console-print!)
 
 (def initial-state {:enemies []
-                    :id-counter 0
+                    ;;:id-counter 0
                     :moves 0
-                    :player {:active false
+                    :player {;;:active false
                              :energy 10
                              :x 4 :y 4}})
 
@@ -18,11 +18,6 @@
 
 (defn init []
   (reset! app-state initial-state))
-
-(defn new-id []
-  (let [g (:gensym @app-state)]
-    (swap! app-state update :id-counter inc)
-    g))
 
 (defn create-enemy []
   (let [dir (random-dir)
@@ -50,12 +45,14 @@
 
 (defn spawn-enemy []
   (when (= 0 (mod (:moves @app-state) 3))
-    (swap! app-state update :enemies
+    (swap! app-state
+           update :enemies
            #(conj % (create-enemy)))))
 
 (defn collect-enemy []
-  (let [at-player-position? (fn [e]
-                              (at-same-position? e (:player @app-state)))
+  (let [player-pos (:player @app-state)
+        at-player-position? (fn [e]
+                              (at-same-position? e player-pos))
         collection (filter at-player-position?
                            (:enemies @app-state))]
     (when (not (empty? collection))
@@ -66,23 +63,24 @@
                    (update :enemies #(remove at-player-position? %))))))))
 
 (defn clean-up-enemies []
-  (swap! app-state
-         update :enemies #(remove out-of-bounds? %)))
+  (swap!
+   app-state
+   update :enemies #(remove out-of-bounds? %)))
 
 (defn opponents-move []
   "called whenever the player moves"
   (collect-enemy)
   (move-enemies)
-  (collect-enemy)
+  ;;(collect-enemy)
   (spawn-enemy)
   (clean-up-enemies))
 
-(defn toggle-player []
-  (swap! app-state
-         update-in [:player :active] not))
+;; (defn toggle-player []
+;;   (swap!
+;;    app-state
+;;    update-in [:player :active] not))
 
 (defn move-player 
-  "known bug: when moving the mouse cursor quickly, the player can move more than 1 square per 'turn' / registered mouse event."
   ([dir]
    (let [{:keys [x y]} (:player @app-state)]
      (case dir
@@ -91,9 +89,10 @@
        :left (move-player (dec x) y)
        :right (move-player (inc x) y))))
   ([x y]
-   (when (and (-> @app-state :player :active)
-              (< 0 (-> @app-state :player :energy))
-              (not (out-of-bounds? {:x x :y y})))
+   (when (and ;;(-> @app-state :player :active)
+          (< 0 (-> @app-state :player :energy))
+          (not (out-of-bounds? {:x x :y y})))
+     (collect-enemy)
      (swap!
       app-state
       #(-> %
@@ -102,9 +101,9 @@
            (update :moves inc)))
      (opponents-move))))
 
-(defn activate-player []
-  (when (not (:active (:player @app-state)))
-    (swap! app-state assoc-in [:player :active] true)))
+;; (defn activate-player []
+;;   (when (not (:active (:player @app-state)))
+;;     (swap! app-state assoc-in [:player :active] true)))
 
 (defn position-style [thing]
   {:top (* 50 (:y thing))
@@ -127,7 +126,8 @@
     ;; Player
     [:div.player
      {:style (position-style (:player @app-state))
-      :on-click #'toggle-player}]
+      ;;:on-click #'toggle-player
+      }]
     ;; Enemies
     (doall
      (for [e (:enemies @app-state)]
@@ -143,9 +143,13 @@
        ])]
    
    [:br {:style {:clear "both"}}]
+   [:div.energy
+    {:style {:width (* 20 (-> @app-state :player :energy))}}]
    [:p
     "energy:" (str (-> @app-state :player :energy)) [:br]
-    "moves:" (str (:moves @app-state))]
+    "moves:" (str (:moves @app-state)) [:br]
+    ;;"gensym:" (str (:id-counter @app-state))
+    ]
    ])
 
 (reagent/render-component [hello-world]
