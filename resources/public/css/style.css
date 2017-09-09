@@ -7,21 +7,23 @@
 
 .main {
     position: relative;
-    width: calc( 50px * 9 );
+    width: calc( 50px * 7 );
     overflow: hidden;
 }
 
 .field {
     position: relative;
-    width: calc( 50px * 9 );
+    width: calc( 50px * 7 );
 }
 
 .block {
     display: block;
     float: left;
-    border: 1px solid lightgray;
-    width: 48px;
-    height: 48px;
+    /* border: 1px solid lightgray; */
+    background-color: lightgray;
+    margin: 5px;
+    width: 40px;
+    height: 40px;
 }
 
 .player, .enemy {
@@ -57,7 +59,7 @@
 .energy {
     display: block;
     height: 20px;
-    max-width: calc( 50px * 9 );
+    max-width: calc( 50px * 7 );
     background-color: green;
 }
 
@@ -67,15 +69,15 @@
     z-index: 1;
     top: 0px;
     left: 0px;
-    width: calc( 50px * 9 );
-    height: calc( 50px * 9 );
+    width: calc( 50px * 7 );
+    height: calc( 50px * 7 );
     transform: rotate(45deg);
 }
 
 .controls .button {
     display: block;
     float: left;
-    background-color: rgba( 0, 0, 0, 0.1 );
+    background-color: rgba( 255, 255, 255, 0.3 );
     margin: 10px;
     width: calc( 50% - 20px );
     height: calc( 50% - 20px );

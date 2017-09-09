@@ -1,6 +1,6 @@
 (ns fig-dungeon.common)
 
-(def gridsize 9)
+(def gridsize 7)
 
 (defn random [n]
   (.round js/Math (* n (.random js/Math))))

@@ -1,9 +1,16 @@
 ;; ideas:
-;; - buy upgrades with energy: more energy per enemy drop, faster movement (e.g. frequent enemy pause), more enemy spawns (less cooldown between spawns)
+;; - buy upgrades with energy:
+;;   more energy per enemy drop,
+;;   faster movement (e.g. frequent enemy pause),
+;;   more enemy spawns (less cooldown between spawns)
+;; - purchase field effects from energy:
+;;   stop spawning on field,
+;;   increase (enemy) energy when stepping on field (feed),
+;;   change direction when stepping on field,
+;;   pause for n steps when stepping on field (trap),
 ;; - increase difficulty by removing floors (so player can't move on it, enemies die on it)
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
 ;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
-
 (ns fig-dungeon.core
   (:require [reagent.core :as reagent :refer [atom]]
             [fig-dungeon.common :refer [gridsize
@@ -14,10 +21,16 @@
 
 (enable-console-print!)
 
+(def energy-bonus 4)
+
 (def initial-state {:enemies []
                     :moves 0
-                    :player {:energy 10
-                             :x 4 :y 4}})
+                    :ledger {:deltas [] ; ledger of collections
+                             :last-catch 0 ; move # when player last collected energy
+                             }
+                    :player {:energy 5
+                             :x (.floor js/Math (/ gridsize 2))
+                             :y (.floor js/Math (/ gridsize 2))}})
 
 (defonce app-state (atom initial-state))
 
@@ -25,9 +38,6 @@
 
 (defn my-gensym []
   (set! counter (inc counter)))
-
-(defn init []
-  (reset! app-state initial-state))
 
 (defn move-enemy [e]
   (if (:dead e)
@@ -71,19 +81,33 @@
   "kill enemies at player position and increase player energy."
   (let [player-pos (:player @app-state)
         at-player-position? #(at-same-position? % player-pos)
-        collection (filter at-player-position? (:enemies @app-state))
+        collection (->> (:enemies @app-state)
+                        (remove #(:dead %))
+                        (filter at-player-position?))
+        energy (* energy-bonus (count collection))
         ]
     (when (not (empty? collection))
       (swap! app-state
              (fn [s]
                (-> s
-                   (update-in [:player :energy] #(+ % (* 4 (count collection))))
-                   (update :enemies (fn [es]
-                                      (mapv (fn [e]
-                                              (if (at-player-position? e)
-                                                (assoc e :dead true)
-                                                e))
-                                            es)))))))))
+                   (update-in [:player :energy]
+                              #(+ % energy))
+                   (update :enemies
+                           (fn [es]
+                             (mapv (fn [e]
+                                     (if (at-player-position? e)
+                                       (assoc e :dead true)
+                                       e))
+                                   es)))
+                   (update :ledger
+                           (fn [l]
+                             (let [moves (- (:moves @app-state)
+                                            (:last-catch l))
+                                   delta (- energy moves)]
+                               (-> l
+                                   (update :deltas conj delta)
+                                   (assoc :last-catch (:moves @app-state))))))
+                   ))))))
 
 (defn remove-dead-enemies []
   (swap! app-state
@@ -134,6 +158,10 @@
   {:top (* 50 (:y thing))
    :left (* 50 (:x thing))})
 
+(defn init []
+  (reset! app-state initial-state)
+  (spawn-enemy))
+
 (defn key-down [e]
   (case (.-key e)
     "r" (init)
@@ -170,7 +198,9 @@
     {:style {:width (* 20 (-> @app-state :player :energy))}}]
    [:p
     "energy:" (str (-> @app-state :player :energy)) [:br]
-    "moves:" (str (:moves @app-state)) [:br]]
+    "moves:" (str (:moves @app-state)) [:br]
+    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
+    "history:" (str (-> @app-state :ledger :deltas))]
    ;; Mobile Controls
    [:div.controls
     (for [dir '(:up :right :left :down)]
