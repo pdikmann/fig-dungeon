@@ -12,19 +12,23 @@
 ;; - increase difficulty by removing floors (so player can't move on it, enemies die on it)
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
 ;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
+
 (ns fig-dungeon.core
   (:require [clojure.set :refer [difference union]]
             [reagent.core :as reagent :refer [atom]]
             [fig-dungeon.common :refer [gridsize
-                                        random-dir
                                         random
-                                        at-same-position?
                                         out-of-bounds?
-                                        tile-index]]))
+                                        tile-index
+                                        floor-exists?]]
+            [fig-dungeon.enemies :refer [move-enemies
+                                         create-enemy
+                                         spawn-enemy
+                                         collect-enemy
+                                         remove-dead-enemies
+                                         kill-out-of-bound-enemies]]))
 
 (enable-console-print!)
-
-(def energy-bonus 4)
 
 (def initial-state {:enemies []
                     :moves 0
@@ -43,13 +47,8 @@
 
 (defonce app-state (atom initial-state))
 
-(def counter 0)
-
-(defn my-gensym []
-  (set! counter (inc counter)))
-
 (defn remove-floor []
-  (when (= 0 (mod (:moves @app-state) 3))
+  (when (= 0 (mod (:moves @app-state) 14))
     (let [floor (:floor @app-state)
           pick (set (vector (nth (seq floor)
                                  (random (dec (count floor))))))]
@@ -60,12 +59,15 @@
       ;;(println "tile count" (count (:floor @app-state)))
       )))
 
-(defn floor-exists?
-  ([{:keys [x y]}]
-   (floor-exists? x y))
-  ([x y]
-   ((:floor @app-state) {:x x :y y
-                         :id (tile-index x y)})))
+(defn opponents-move []
+  "called after the player moves."
+  (remove-dead-enemies app-state)
+  (collect-enemy app-state)
+  (move-enemies app-state)
+  (collect-enemy app-state)
+  (spawn-enemy app-state)
+  (remove-floor)
+  (kill-out-of-bound-enemies app-state))
 
 (defn repair-tile-picked [x y]
   (swap! app-state
@@ -73,9 +75,9 @@
            (update :floor
                    union (set [{:x x :y y
                                 :id (tile-index x y)}]))
-           (update-in [:player :energy] dec)))
-  ;;(opponents-move)
-  )
+           (update-in [:player :energy] dec)
+           (update :moves inc)))
+  (opponents-move))
 
 (defn repair-tile []
   (swap! app-state
@@ -83,101 +85,6 @@
          :picking true
          :pick-fn #'repair-tile-picked))
 
-(defn move-enemy [e]
-  (if (:dead e)
-    e
-    (case (:dir e)
-      :up (update e :y dec)
-      :down (update e :y inc)
-      :left (update e :x dec)
-      :right (update e :x inc))))
-
-(defn move-enemies []
-  (swap! app-state
-         update :enemies
-         #(mapv #'move-enemy %)))
-
-(defn create-enemy []
-  "introduce one new enemy around the edge of the playing field."
-  (let [dir (random-dir)
-        max (dec gridsize)
-        pos (random max)
-        nme (case dir
-              :up    {:x pos :y max}
-              :down  {:x pos :y 0}
-              :left  {:x max :y pos}
-              :right {:x 0 :y pos})]
-    (if (at-same-position? nme (:player @app-state))
-      (recur)
-      (assoc nme
-             :dir dir
-             :id (my-gensym)
-             :dead false))))
-
-(defn spawn-enemy []
-  "spawn an enemy in regular intervals (every n turns)."
-  (when (= 0 (mod (:moves @app-state) 3))
-    (swap! app-state
-           update :enemies
-           #(conj % (create-enemy)))))
-
-(defn collect-enemy []
-  "kill enemies at player position and increase player energy."
-  (let [player-pos (:player @app-state)
-        at-player-position? #(at-same-position? % player-pos)
-        collection (->> (:enemies @app-state)
-                        (remove #(:dead %))
-                        (filter at-player-position?))
-        energy (* energy-bonus (count collection))
-        ]
-    (when (not (empty? collection))
-      (swap! app-state
-             (fn [s]
-               (-> s
-                   (update-in [:player :energy]
-                              #(+ % energy))
-                   (update :enemies
-                           (fn [es]
-                             (mapv (fn [e]
-                                     (if (at-player-position? e)
-                                       (assoc e :dead true)
-                                       e))
-                                   es)))
-                   (update :ledger
-                           (fn [l]
-                             (let [moves (- (:moves @app-state)
-                                            (:last-catch l))
-                                   delta (- energy moves)]
-                               (-> l
-                                   (update :deltas conj delta)
-                                   (assoc :last-catch (:moves @app-state))))))
-                   ))))))
-
-(defn remove-dead-enemies []
-  (swap! app-state
-         update :enemies
-         (fn [es] (vec (remove #(:dead %) es)))))
-
-(defn kill-out-of-bound-enemies []
-  (swap!
-   app-state
-   update :enemies
-   (fn [es]
-     (mapv #(if (or (out-of-bounds? %)
-                    (not (floor-exists? %)))
-              (assoc % :dead true)
-              %)
-           es))))
-
-(defn opponents-move []
-  "called after the player moves."
-  (remove-dead-enemies)
-  (collect-enemy)
-  (move-enemies)
-  (collect-enemy)
-  (spawn-enemy)
-  (remove-floor)
-  (kill-out-of-bound-enemies))
 
 (defn move-player 
   ([dir]
@@ -190,7 +97,7 @@
   ([x y]
    (when (and (< 0 (-> @app-state :player :energy))
               (not (out-of-bounds? {:x x :y y}))
-              (floor-exists? x y))
+              (floor-exists? app-state x y))
      (swap!
       app-state
       #(-> %
@@ -205,7 +112,7 @@
 
 (defn init []
   (reset! app-state initial-state)
-  (spawn-enemy))
+  (spawn-enemy app-state))
 
 (defn key-down [e]
   (case (.-key e)

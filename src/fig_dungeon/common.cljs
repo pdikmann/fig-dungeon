@@ -1,6 +1,12 @@
 (ns fig-dungeon.common)
 
 (def gridsize 7)
+(def energy-bonus 4)
+
+(def counter 0)
+
+(defn my-gensym []
+  (set! counter (inc counter)))
 
 (defn random [n]
   (.round js/Math (* n (.random js/Math))))
@@ -22,3 +28,11 @@
   ([x y]
    (or (< (min x y) 0)
        (> (max x y) (dec gridsize)))))
+
+(defn floor-exists?
+  ([app-state {:keys [x y]}]
+   (floor-exists? app-state x y))
+  ([app-state x y]
+   ((:floor @app-state) {:x x :y y
+                         :id (tile-index x y)})))
+
