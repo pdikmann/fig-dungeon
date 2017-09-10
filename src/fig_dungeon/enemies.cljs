@@ -46,39 +46,47 @@
            update :enemies
            #(conj % (create-enemy app-state)))))
 
+(defn kill-enemies-at-player-position [app-state-deref]
+  (let [player-pos (:player app-state-deref)
+        at-player-position? #(at-same-position? % player-pos)]
+    (update app-state-deref :enemies
+            (fn [es]
+              (mapv (fn [e]
+                      (if (at-player-position? e)
+                        (assoc e :dead true)
+                        e))
+                    es)))))
+
+(defn update-ledger [app-state-deref energy]
+  (update app-state-deref :ledger
+          (fn [l]
+            (let [moves (- (:moves app-state-deref)
+                           (:last-catch l))
+                  delta (- energy moves)]
+              (-> l
+                  (update :deltas conj delta)
+                  (assoc :last-catch (:moves app-state-deref)))))))
+
 (defn collect-enemy [app-state]
-  "kill enemies at player position and increase player energy."
+  "kill enemies at player position, increase player energy, trigger chaining."
   (let [player-pos (:player @app-state)
         at-player-position? #(at-same-position? % player-pos)
         collection (->> (:enemies @app-state)
                         (remove #(:dead %))
                         (filter at-player-position?))
-        energy (* energy-bonus (count collection))
-        ]
+        energy (* energy-bonus (count collection))]
     (when (not (empty? collection))
       (swap! app-state
              (fn [s]
                (-> s
-                   ;; player collects energy.
-                   (update-in [:player :energy]
-                              #(+ % energy))
-                   ;; enemies are tagged 'dead'.
-                   (update :enemies
-                           (fn [es]
-                             (mapv (fn [e]
-                                     (if (at-player-position? e)
-                                       (assoc e :dead true)
-                                       e))
-                                   es)))
-                   ;; collection history is updated.
-                   (update :ledger
-                           (fn [l]
-                             (let [moves (- (:moves @app-state)
-                                            (:last-catch l))
-                                   delta (- energy moves)]
-                               (-> l
-                                   (update :deltas conj delta)
-                                   (assoc :last-catch (:moves @app-state))))))
+                   (update-in [:player :energy] #(+ % energy))
+                   (kill-enemies-at-player-position)
+                   (update-ledger energy)
+                   ((fn [s]
+                      (if (> (-> s :chain :left) 0)
+                        (update-in s [:chain :count] inc)
+                        s)))
+                   (assoc-in [:chain :left] (-> @app-state :chain :time))
                    (assoc :notice true)))))))
 
 (defn remove-dead-enemies [app-state]

@@ -23,6 +23,7 @@
 ;; - instead of summing energy, make movement free but start a chain countdown when collecting.
 ;;   chain length can then be used to buy updates (a la gradius).
 ;;   'repair tile' is also an upgrade.
+;;   'increase chain time' as an upgrade.
 ;;   
 ;; - [x] increase difficulty by removing floors (so player can't move on it, enemies die on it)
 
@@ -52,9 +53,16 @@
                                       x (range gridsize)]
                                   {:x x :y y
                                    :id (tile-index x y)}))
-                    :ledger {:deltas [] ; ledger of collections
-                             :last-catch 0 ; move # when player last collected energy
+                    :ledger {:deltas [] ; ledger of collections.
+                             :last-catch 0 ; move # when player last collected energy.
                              }
+                    :chain {:count 0 ; current chain count.
+                            :left 0 ; moves left in current chain.
+                            :time 5 ; moves to continue chain (one
+                                    ; more than intended because chain
+                                    ; time is immediately decremented
+                                    ; after player's collecting move).
+                            }
                     :player {:energy 5
                              :x (.floor js/Math (/ gridsize 2))
                              :y (.floor js/Math (/ gridsize 2))}})
@@ -73,12 +81,24 @@
       ;;(println "tile count" (count (:floor @app-state)))
       )))
 
+(defn dec-chain-time []
+  (swap! app-state update-in [:chain :left] #(max 0 (dec %))))
+
+(defn break-chain []
+  (swap! app-state
+         (fn [s]
+           (if (= 0 (-> s :chain :left))
+             (assoc-in s [:chain :count] 0)
+             s))))
+
 (defn opponents-move []
   "called after the player moves."
   (remove-dead-enemies app-state)
   (collect-enemy app-state)
   (move-enemies app-state)
   (collect-enemy app-state)
+  (dec-chain-time)
+  (break-chain) ; chains are broken on "opponents" move because that's where collection happens.
   (spawn-enemy app-state)
   (remove-floor)
   (kill-out-of-bound-enemies app-state))
@@ -106,7 +126,6 @@
            :picking true
            :pick-fn #'repair-tile-picked)))
 
-
 (defn move-player 
   ([dir]
    (let [{:keys [x y]} (:player @app-state)]
@@ -121,10 +140,11 @@
               (floor-exists? app-state x y))
      (swap!
       app-state
-      #(-> %
-           (update :player assoc :x x :y y)
-           (update-in [:player :energy] dec)
-           (update :moves inc)))
+      (fn [s]
+        (-> s
+            (update :player assoc :x x :y y)
+            (update-in [:player :energy] dec)
+            (update :moves inc))))
      (opponents-move))))
 
 (defn position-style [thing]
@@ -191,6 +211,7 @@
 (defn debug []
   [:p
    "energy:" (str (-> @app-state :player :energy)) [:br]
+   "chain:" (str (-> @app-state :chain :count)) [:br]
    "moves:" (str (:moves @app-state)) [:br]
    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
    "history:" (str (-> @app-state :ledger :deltas))])
@@ -210,13 +231,29 @@
                          (.stopPropagation e)
                          (move-player dir))}]))])
 
-(defn chain []
+(defn counter
+  [n
+   &{:keys [color
+            center]
+     :or {color "green"
+          center false}}]
+  [:div.counter
+   (doall
+    (for [m (range n)]
+      ^{:key m}
+      [:div.ball {:style {:background-color color}}]))
+   [:br {:style {:clear "both"}}]])
+
+(defn chain-notice []
   (fn []
     (when (:notice @app-state)
       (js/setTimeout #(swap! app-state assoc :notice false) 1))
     [:div.chain
      {:class (if (:notice @app-state) nil "off")}
-     (str (last (-> @app-state :ledger :deltas)))]))
+     ;;(str (last (-> @app-state :ledger :deltas)))
+     [counter (-> @app-state :chain :count)
+      :color "black"
+      :center true]]))
 
 (defn smallest-fit
   ([n]
@@ -238,14 +275,10 @@
    ;; GUI
    ;; [:div.energy
    ;;  {:style {:width (* 20 (-> @app-state :player :energy))}}]
-   [:div.energy
-    ;; {:style {:width (energy-container-size)
-    ;;          :height (energy-container-size)}}
-    (for [n (range (-> @app-state :player :energy))]
-      ^{:key n}
-      [:div.ball])
-    [:br {:style {:clear "both"}}]]
-   [chain]
+   [counter (-> @app-state :player :energy) :color "green"]
+   [counter (-> @app-state :chain :count) :color "black"]
+   [counter (-> @app-state :chain :left) :color "red"]
+   [chain-notice]
    [mobile-controls]
    ;; temporary overlay
    [:div.pick-overlay
