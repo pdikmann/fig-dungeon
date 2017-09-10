@@ -14,12 +14,12 @@
 .field {
     position: relative;
     width: calc( 50px * 7 );
+    height: calc( 50px * 7 );
 }
 
 .block {
     display: block;
-    float: left;
-    /* border: 1px solid lightgray; */
+    position: absolute;
     background-color: lightgray;
     margin: 5px;
     width: 40px;
@@ -40,12 +40,12 @@
 
 .player {
      background-color: magenta;
-     z-index: 1;
+     z-index: 2;
 }
 
 .enemy {
     background-color: green;
-    /* z-index: -1; */
+    z-index: 1;
 }
 
 .dead {
@@ -66,7 +66,7 @@
 .controls {
     display: block;
     position: absolute;
-    z-index: 1;
+    z-index: 2;
     top: 0px;
     left: 0px;
     width: calc( 50px * 7 );

@@ -12,7 +12,8 @@
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
 ;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
 (ns fig-dungeon.core
-  (:require [reagent.core :as reagent :refer [atom]]
+  (:require [clojure.set :refer [difference]]
+            [reagent.core :as reagent :refer [atom]]
             [fig-dungeon.common :refer [gridsize
                                         random-dir
                                         random
@@ -25,6 +26,10 @@
 
 (def initial-state {:enemies []
                     :moves 0
+                    :floor (set (for [y (range gridsize)
+                                      x (range gridsize)]
+                                  {:x x :y y
+                                   :id (+ x (* y gridsize))}))
                     :ledger {:deltas [] ; ledger of collections
                              :last-catch 0 ; move # when player last collected energy
                              }
@@ -38,6 +43,25 @@
 
 (defn my-gensym []
   (set! counter (inc counter)))
+
+(defn remove-floor []
+  (when (= 0 (mod (:moves @app-state) 3))
+    (let [floor (:floor @app-state)
+          pick (set (vector (nth (seq floor)
+                                 (random (dec (count floor))))))]
+      ;;(println "removing floor" floor pick)
+      (swap! app-state
+             assoc :floor
+             (difference floor pick))
+      ;;(println "tile count" (count (:floor @app-state)))
+      )))
+
+(defn floor-exists?
+  ([{:keys [x y]}]
+   (floor-exists? x y))
+  ([x y]
+   ((:floor @app-state) {:x x :y y
+                         :id (+ x (* y gridsize))})))
 
 (defn move-enemy [e]
   (if (:dead e)
@@ -119,7 +143,8 @@
    app-state
    update :enemies
    (fn [es]
-     (mapv #(if (out-of-bounds? %)
+     (mapv #(if (or (out-of-bounds? %)
+                    (not (floor-exists? %)))
               (assoc % :dead true)
               %)
            es))))
@@ -131,6 +156,7 @@
   (move-enemies)
   (collect-enemy)
   (spawn-enemy)
+  (remove-floor)
   (kill-out-of-bound-enemies))
 
 (defn move-player 
@@ -142,10 +168,9 @@
        :left (move-player (dec x) y)
        :right (move-player (inc x) y))))
   ([x y]
-   (when (and ;;(-> @app-state :player :active)
-          (< 0 (-> @app-state :player :energy))
-          (not (out-of-bounds? {:x x :y y})))
-     ;;(collect-enemy)
+   (when (and (< 0 (-> @app-state :player :energy))
+              (not (out-of-bounds? {:x x :y y}))
+              (floor-exists? x y))
      (swap!
       app-state
       #(-> %
@@ -188,10 +213,16 @@
                              "dead"
                              nil)}]))
     ;; Grid
-    (for [y (range gridsize)
-          x (range gridsize)]
-      ^{:key (+ x (* y gridsize))}
-      [:div.block])]
+    (doall
+     (for [f (:floor @app-state)]
+       ^{:key (:id f)}
+       [:div.block {:style {:top (* 50 (:y f))
+                            :left (* 50 (:x f))}}]))
+    ;; (for [y (range gridsize)
+    ;;       x (range gridsize)]
+    ;;   ^{:key (+ x (* y gridsize))}
+    ;;   [:div.block])
+    ]
    [:br {:style {:clear "both"}}]
    ;; GUI
    [:div.energy
@@ -203,13 +234,14 @@
     "history:" (str (-> @app-state :ledger :deltas))]
    ;; Mobile Controls
    [:div.controls
-    (for [dir '(:up :right :left :down)]
-      ^{:key dir}
-      [:div.button
-       {:on-touch-start (fn [e]
-                          (.preventDefault e)
-                          (.stopPropagation e)
-                          (move-player dir))}])]
+    (doall
+     (for [dir '(:up :right :left :down)]
+       ^{:key dir}
+       [:div.button
+        {:on-touch-start (fn [e]
+                           (.preventDefault e)
+                           (.stopPropagation e)
+                           (move-player dir))}]))]
    ])
 
 (reagent/render-component [hello-world]
