@@ -167,6 +167,26 @@
    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
    "history:" (str (-> @app-state :ledger :deltas))])
 
+(defn mobile-controls []
+  [:div.controls
+   (doall
+    (for [dir '(:up :right :left :down)]
+      ^{:key dir}
+      [:div.button
+       {:on-touch-start (fn [e]
+                          (.preventDefault e)
+                          (.stopPropagation e)
+                          (move-player dir))}]))])
+
+(defn smallest-fit
+  ([n]
+   (smallest-fit n 1))
+  ([n i]
+   (if (> (* i i) n) i (smallest-fit n (inc i)))))
+
+(defn energy-container-size []
+  (* 25 (smallest-fit (-> @app-state :player :energy))))
+
 (defn hello-world []
   [:div.main 
    {:tab-index 1             ; enables focus, to catch keyboard events
@@ -176,22 +196,21 @@
     [enemies]
     [grid]]
    ;; GUI
+   ;; [:div.energy
+   ;;  {:style {:width (* 20 (-> @app-state :player :energy))}}]
    [:div.energy
-    {:style {:width (* 20 (-> @app-state :player :energy))}}]
-   ;; Mobile Controls
-   [:div.controls
-    (doall
-     (for [dir '(:up :right :left :down)]
-       ^{:key dir}
-       [:div.button
-        {:on-touch-start (fn [e]
-                           (.preventDefault e)
-                           (.stopPropagation e)
-                           (move-player dir))}]))]
+    ;; {:style {:width (energy-container-size)
+    ;;          :height (energy-container-size)}}
+    (for [n (range (-> @app-state :player :energy))]
+      ^{:key n}
+      [:div.ball])
+    [:br {:style {:clear "both"}}]]
+   [mobile-controls]
    ;; temporary overlay
    [:div.pick-overlay
     {:class (if (:picking @app-state) "show" "hidden")
-     :on-touch-start #'pick-touch}]
+     :on-touch-start #'pick-touch}
+    "PICK TILE TO REPAIR"]
    ;; "Game Over"-Notice
    [:div.game-over
     {:class (if (= 0 (-> @app-state :player :energy)) "show" "hidden")}
