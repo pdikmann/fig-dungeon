@@ -4,7 +4,8 @@
 ;;   faster movement (e.g. frequent enemy pause),
 ;;   more enemy spawns (less cooldown between spawns)
 ;; - purchase field effects from energy:
-;;   stop spawning on field,
+;;   stop spawning on field (e.g. to block corners),
+;;   increased chance of spawning on field (e.g. to lure into center),
 ;;   increase (enemy) energy when stepping on field (feed),
 ;;   change direction when stepping on field,
 ;;   pause for n steps when stepping on field (trap),
@@ -12,13 +13,14 @@
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
 ;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
 (ns fig-dungeon.core
-  (:require [clojure.set :refer [difference]]
+  (:require [clojure.set :refer [difference union]]
             [reagent.core :as reagent :refer [atom]]
             [fig-dungeon.common :refer [gridsize
                                         random-dir
                                         random
                                         at-same-position?
-                                        out-of-bounds?]]))
+                                        out-of-bounds?
+                                        tile-index]]))
 
 (enable-console-print!)
 
@@ -26,10 +28,12 @@
 
 (def initial-state {:enemies []
                     :moves 0
+                    :picking false
+                    :pick-fn (fn [x y] nil)
                     :floor (set (for [y (range gridsize)
                                       x (range gridsize)]
                                   {:x x :y y
-                                   :id (+ x (* y gridsize))}))
+                                   :id (tile-index x y)}))
                     :ledger {:deltas [] ; ledger of collections
                              :last-catch 0 ; move # when player last collected energy
                              }
@@ -61,10 +65,23 @@
    (floor-exists? x y))
   ([x y]
    ((:floor @app-state) {:x x :y y
-                         :id (+ x (* y gridsize))})))
+                         :id (tile-index x y)})))
+
+(defn repair-tile-picked [x y]
+  (swap! app-state
+         #(-> %
+           (update :floor
+                   union (set [{:x x :y y
+                                :id (tile-index x y)}]))
+           (update-in [:player :energy] dec)))
+  ;;(opponents-move)
+  )
 
 (defn repair-tile []
-  (println "whoop!"))
+  (swap! app-state
+         assoc
+         :picking true
+         :pick-fn #'repair-tile-picked))
 
 (defn move-enemy [e]
   (if (:dead e)
@@ -199,34 +216,58 @@
     "d" (move-player :right)
     nil))
 
-(defn hello-world []
-  [:div.main 
-   {:tab-index 1 ; enables focus, to catch keyboard events
-    :on-key-down #'key-down}
-   [:div.field
-    ;; Player
-    [:div.player
-     {:style (position-style (:player @app-state))}]
-    ;; Enemies
-    (doall
+(defn pick-touch [t]
+  (swap! app-state
+         assoc :picking false)
+  (let [touch (-> t
+                  (.-changedTouches)
+                  (.item 0))
+        exp #(.floor js/Math (/ % 50))
+        x (exp (.-pageX touch))
+        y (exp (.-pageY touch))]
+    ;;(println "touching at" x y)
+    ((:pick-fn @app-state) x y)))
+
+;; --------------------------------------------------------------------------------
+;; react
+(defn player []
+  [:div.player
+     {:style (position-style (:player @app-state))}])
+
+(defn enemy [e]
+  [:div.enemy {:style (position-style e)
+               :class (if (:dead e) "dead" nil)}])
+
+(defn enemies []
+  [:div
+   (doall
      (for [e (:enemies @app-state)]
        ^{:key (:id e)}
-       [:div.enemy {:style (position-style e)
-                    :class (if (:dead e)
-                             "dead"
-                             nil)}]))
-    ;; Grid
-    (doall
-     (for [f (:floor @app-state)]
-       ^{:key (:id f)}
-       [:div.block {:style {:top (* 50 (:y f))
-                            :left (* 50 (:x f))}}]))
-    ;; (for [y (range gridsize)
-    ;;       x (range gridsize)]
-    ;;   ^{:key (+ x (* y gridsize))}
-    ;;   [:div.block])
-    ]
-   ;;[:br {:style {:clear "both"}}]
+       [enemy e]))])
+
+(defn grid []
+  [:div
+   (doall
+    (for [f (:floor @app-state)]
+      ^{:key (:id f)}
+      [:div.block {:style {:top (* 50 (:y f))
+                           :left (* 50 (:x f))}}]))])
+
+(defn debug []
+  [:p
+   "energy:" (str (-> @app-state :player :energy)) [:br]
+   "moves:" (str (:moves @app-state)) [:br]
+   "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
+   "history:" (str (-> @app-state :ledger :deltas))])
+
+(defn hello-world []
+  [:div.main 
+   {:tab-index 1             ; enables focus, to catch keyboard events
+    :on-key-down #'key-down}
+   [:div.field
+    [player]
+    [enemies]
+    [grid]]
    ;; GUI
    [:div.energy
     {:style {:width (* 20 (-> @app-state :player :energy))}}]
@@ -240,21 +281,22 @@
                            (.preventDefault e)
                            (.stopPropagation e)
                            (move-player dir))}]))]
-   ;; other controls
-   [:div.game-over {:class (if (= 0 (-> @app-state :player :energy))
-                             "show"
-                             "hidden")}
+   ;; temporary overlay
+   [:div.pick-overlay
+    {:class (if (:picking @app-state) "show" "hidden")
+     :on-touch-start #'pick-touch}]
+   ;; "Game Over"-Notice
+   [:div.game-over
+    {:class (if (= 0 (-> @app-state :player :energy)) "show" "hidden")}
     [:a {:href "#" :on-click #'init}
      "GAME OVER"]]
+   ;; Build Orders
    [:div.builds
     [:a {:href "#"
          :on-click #'repair-tile}
      "REPAIR TILE"]]
-   [:p
-    "energy:" (str (-> @app-state :player :energy)) [:br]
-    "moves:" (str (:moves @app-state)) [:br]
-    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
-    "history:" (str (-> @app-state :ledger :deltas))]
+   ;; Debug
+   [debug]
    ])
 
 (reagent/render-component [hello-world]

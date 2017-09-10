@@ -88,6 +88,7 @@
 .game-over {
     display: block;
     position: absolute;
+    z-index: 3;
     font-weight: bold;
     font-size: 200%;
     width: 200px;
@@ -96,7 +97,17 @@
     margin-left: 50%;
     text-align: center;
     /* border: 1px solid black; */
+}
+
+.pick-overlay {
+    display: block;
+    background-color: rgba( 255, 255, 0, 0.5 );
+    position: absolute;
     z-index: 3;
+    top: 0px;
+    left: 0px;
+    width: 100vw;
+    height: 100vh;
 }
 
 .show {

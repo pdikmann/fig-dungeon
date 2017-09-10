@@ -11,8 +11,10 @@
 (defn at-same-position? [{x1 :x y1 :y}
                          {x2 :x y2 :y}]
   (and (= x1 x2)
-       (= y1 y2))
-  )
+       (= y1 y2)))
+
+(defn tile-index [x y]
+  (+ x (* y gridsize)))
 
 (defn out-of-bounds?
   ([{:keys [x y]}]
