@@ -72,6 +72,7 @@
     width: calc( 50px * 7 );
     height: calc( 50px * 7 );
     transform: rotate(45deg);
+    border: 1px dotted black;
 }
 
 .controls .button {
@@ -82,4 +83,26 @@
     width: calc( 50% - 20px );
     height: calc( 50% - 20px );
     border-radius: 50%;
+}
+
+.game-over {
+    display: block;
+    position: absolute;
+    font-weight: bold;
+    font-size: 200%;
+    width: 200px;
+    top: 40vw;
+    left: -100px;
+    margin-left: 50%;
+    text-align: center;
+    /* border: 1px solid black; */
+    z-index: 3;
+}
+
+.show {
+    visibility: visible;
+}
+
+.hidden {
+    visibility: hidden;
 }

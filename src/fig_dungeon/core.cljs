@@ -63,6 +63,9 @@
    ((:floor @app-state) {:x x :y y
                          :id (+ x (* y gridsize))})))
 
+(defn repair-tile []
+  (println "whoop!"))
+
 (defn move-enemy [e]
   (if (:dead e)
     e
@@ -223,15 +226,10 @@
     ;;   ^{:key (+ x (* y gridsize))}
     ;;   [:div.block])
     ]
-   [:br {:style {:clear "both"}}]
+   ;;[:br {:style {:clear "both"}}]
    ;; GUI
    [:div.energy
     {:style {:width (* 20 (-> @app-state :player :energy))}}]
-   [:p
-    "energy:" (str (-> @app-state :player :energy)) [:br]
-    "moves:" (str (:moves @app-state)) [:br]
-    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
-    "history:" (str (-> @app-state :ledger :deltas))]
    ;; Mobile Controls
    [:div.controls
     (doall
@@ -242,6 +240,21 @@
                            (.preventDefault e)
                            (.stopPropagation e)
                            (move-player dir))}]))]
+   ;; other controls
+   [:div.game-over {:class (if (= 0 (-> @app-state :player :energy))
+                             "show"
+                             "hidden")}
+    [:a {:href "#" :on-click #'init}
+     "GAME OVER"]]
+   [:div.builds
+    [:a {:href "#"
+         :on-click #'repair-tile}
+     "REPAIR TILE"]]
+   [:p
+    "energy:" (str (-> @app-state :player :energy)) [:br]
+    "moves:" (str (:moves @app-state)) [:br]
+    "last catch:" (str (-> @app-state :ledger :last-catch)) [:br]
+    "history:" (str (-> @app-state :ledger :deltas))]
    ])
 
 (reagent/render-component [hello-world]
