@@ -13,6 +13,7 @@
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
 ;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
 
+
 (ns fig-dungeon.core
   (:require [clojure.set :refer [difference union]]
             [reagent.core :as reagent :refer [atom]]
@@ -70,20 +71,27 @@
   (kill-out-of-bound-enemies app-state))
 
 (defn repair-tile-picked [x y]
-  (swap! app-state
-         #(-> %
-           (update :floor
-                   union (set [{:x x :y y
-                                :id (tile-index x y)}]))
-           (update-in [:player :energy] dec)
-           (update :moves inc)))
-  (opponents-move))
+  (let [tile {:x x :y y
+              :id (tile-index x y)}]
+    (when (and (not ((:floor @app-state) tile))
+               (not (out-of-bounds? tile)))
+      (swap! app-state
+             #(-> %
+                  (assoc :picking false)
+                  (update :floor
+                          union (set [{:x x :y y
+                                       :id (tile-index x y)}]))
+                  (update-in [:player :energy] dec)
+                  (update :moves inc)))
+      (opponents-move))))
 
 (defn repair-tile []
-  (swap! app-state
-         assoc
-         :picking true
-         :pick-fn #'repair-tile-picked))
+  (when (< (count (:floor @app-state))
+           (* gridsize gridsize))
+    (swap! app-state
+           assoc
+           :picking true
+           :pick-fn #'repair-tile-picked)))
 
 
 (defn move-player 
@@ -114,6 +122,8 @@
   (reset! app-state initial-state)
   (spawn-enemy app-state))
 
+(init)
+
 (defn key-down [e]
   (case (.-key e)
     "r" (init)
@@ -124,14 +134,19 @@
     nil))
 
 (defn pick-touch [t]
-  (swap! app-state
-         assoc :picking false)
   (let [touch (-> t
                   (.-changedTouches)
                   (.item 0))
         exp #(.floor js/Math (/ % 50))
         x (exp (.-pageX touch))
         y (exp (.-pageY touch))]
+    ;;(println "touching at" x y)
+    ((:pick-fn @app-state) x y)))
+
+(defn pick-click [c]
+  (let [exp #(.floor js/Math (/ % 50))
+        x (exp (.-pageX c))
+        y (exp (.-pageY c))]
     ;;(println "touching at" x y)
     ((:pick-fn @app-state) x y)))
 
@@ -176,7 +191,11 @@
        {:on-touch-start (fn [e]
                           (.preventDefault e)
                           (.stopPropagation e)
-                          (move-player dir))}]))])
+                          (move-player dir))
+        :on-mouse-down (fn [e]
+                         (.preventDefault e)
+                         (.stopPropagation e)
+                         (move-player dir))}]))])
 
 (defn smallest-fit
   ([n]
@@ -209,7 +228,8 @@
    ;; temporary overlay
    [:div.pick-overlay
     {:class (if (:picking @app-state) "show" "hidden")
-     :on-touch-start #'pick-touch}
+     :on-touch-start #'pick-touch
+     :on-click #'pick-click}
     "PICK TILE TO REPAIR"]
    ;; "Game Over"-Notice
    [:div.game-over
