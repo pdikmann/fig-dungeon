@@ -96,6 +96,25 @@
     border-radius: 50%;
 }
 
+.chain {
+    display: block;
+    position: absolute;
+    z-index: 2;
+    width: 200px;
+    top: calc( 50px * 3 );
+    left: -100px;
+    margin-left: 50%;
+    text-align: center;
+    border: 1px solid black;
+    transition: opacity 0s;
+    opacity: 1;
+}
+
+.chain.off {
+    transition: opacity 1s;
+    opacity: 0;
+}
+
 .game-over {
     display: block;
     position: absolute;

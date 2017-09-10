@@ -78,7 +78,8 @@
                                    delta (- energy moves)]
                                (-> l
                                    (update :deltas conj delta)
-                                   (assoc :last-catch (:moves @app-state))))))))))))
+                                   (assoc :last-catch (:moves @app-state))))))
+                   (assoc :notice true)))))))
 
 (defn remove-dead-enemies [app-state]
   (swap! app-state

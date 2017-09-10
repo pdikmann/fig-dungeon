@@ -1,18 +1,30 @@
 ;; ideas:
+;; 
 ;; - buy upgrades with energy:
 ;;   more energy per enemy drop,
 ;;   faster movement (e.g. frequent enemy pause),
 ;;   more enemy spawns (less cooldown between spawns)
+;;   
 ;; - purchase field effects from energy:
 ;;   stop spawning on field (e.g. to block corners),
-;;   increased chance of spawning on field (e.g. to lure into center),
+;;   increased chance of spawning towards field (e.g. to lure into center),
 ;;   increase (enemy) energy when stepping on field (feed),
 ;;   change direction when stepping on field,
 ;;   pause for n steps when stepping on field (trap),
-;; - increase difficulty by removing floors (so player can't move on it, enemies die on it)
+;; 
 ;; - establish 'drop zones', e.g. enemies caught near center are worth less (drop less energy) than enemies caught around the edge of the map
-;; - plot the delta between the steps taken & the energy earned by the next collected enemy; assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
-
+;; 
+;; - [x] plot the delta between the steps taken & the energy earned by the next collected enemy;
+;;   [ ] assign bonuses / maluses for chains (3 positive budgets in a row, 3 negative budgets in a row)
+;; 
+;; - chain bonuses: for every consecutive positive ledger, add 1 to collected energy.
+;;   think: does ledger then take increased energy into account when tallying next collection? (makes chaining much easier once chain has started)
+;;   
+;; - instead of summing energy, make movement free but start a chain countdown when collecting.
+;;   chain length can then be used to buy updates (a la gradius).
+;;   'repair tile' is also an upgrade.
+;;   
+;; - [x] increase difficulty by removing floors (so player can't move on it, enemies die on it)
 
 (ns fig-dungeon.core
   (:require [clojure.set :refer [difference union]]
@@ -33,6 +45,7 @@
 
 (def initial-state {:enemies []
                     :moves 0
+                    :notice false
                     :picking false
                     :pick-fn (fn [x y] nil)
                     :floor (set (for [y (range gridsize)
@@ -122,7 +135,7 @@
   (reset! app-state initial-state)
   (spawn-enemy app-state))
 
-(init)
+;;(init)
 
 (defn key-down [e]
   (case (.-key e)
@@ -197,6 +210,14 @@
                          (.stopPropagation e)
                          (move-player dir))}]))])
 
+(defn chain []
+  (fn []
+    (when (:notice @app-state)
+      (js/setTimeout #(swap! app-state assoc :notice false) 1))
+    [:div.chain
+     {:class (if (:notice @app-state) nil "off")}
+     (str (last (-> @app-state :ledger :deltas)))]))
+
 (defn smallest-fit
   ([n]
    (smallest-fit n 1))
@@ -224,6 +245,7 @@
       ^{:key n}
       [:div.ball])
     [:br {:style {:clear "both"}}]]
+   [chain]
    [mobile-controls]
    ;; temporary overlay
    [:div.pick-overlay
