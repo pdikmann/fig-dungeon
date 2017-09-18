@@ -155,7 +155,7 @@
   (reset! app-state initial-state)
   (spawn-enemy app-state))
 
-;;(init)
+(init)
 
 (defn key-down [e]
   (case (.-key e)

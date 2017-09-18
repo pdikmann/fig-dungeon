@@ -1,0 +1,147 @@
+/* some style */
+
+* {
+    padding: 0px;
+    margin: 0px;
+}
+
+.main {
+    position: relative;
+    width: calc( 50px * 7 );
+    overflow: hidden;
+}
+
+.field {
+    position: relative;
+    width: calc( 50px * 7 );
+    height: calc( 50px * 7 );
+}
+
+.block {
+    display: block;
+    position: absolute;
+    background-color: lightgray;
+    margin: 5px;
+    width: 40px;
+    height: 40px;
+}
+
+.player, .enemy {
+    position: absolute;
+    display: block;
+    width: 50px;
+    height: 50px;
+    top: 0px;
+    left: 0px;
+    transition-property: top, left, opacity;
+    transition-duration: 0.5s;
+    border-radius: 25px;
+}
+
+.player {
+     background-color: magenta;
+     z-index: 2;
+}
+
+.enemy {
+    background-color: green;
+    z-index: 1;
+}
+
+.dead {
+    opacity: 0;
+}
+
+.foo {
+    opacity: 0.5;
+}
+
+.counter {
+    display: block;
+}
+
+.counter .ball {
+    display: block;
+    width: 20px;
+    height: 20px;
+    float: left;
+    border-radius: 10px;
+    /* background-color: black; */
+    margin: 0px 5px 5px 0px;
+}
+
+.controls {
+    display: block;
+    position: absolute;
+    z-index: 2;
+    top: 0px;
+    left: 0px;
+    width: calc( 50px * 7 );
+    height: calc( 50px * 7 );
+    transform: rotate(45deg);
+    /* border: 1px dotted black; */
+}
+
+.controls .button {
+    display: block;
+    float: left;
+    background-color: rgba( 255, 255, 255, 0.3 );
+    margin: 10px;
+    width: calc( 50% - 20px );
+    height: calc( 50% - 20px );
+    border-radius: 50%;
+}
+
+.chain {
+    display: block;
+    position: absolute;
+    z-index: 2;
+    width: 200px;
+    top: calc( 50px * 3 );
+    left: -100px;
+    margin-left: 50%;
+    text-align: center;
+    border: 1px solid black;
+    transition: opacity 0s;
+    opacity: 1;
+}
+
+.chain.off {
+    transition: opacity 1s;
+    opacity: 0;
+}
+
+.game-over {
+    display: block;
+    position: absolute;
+    z-index: 3;
+    font-weight: bold;
+    font-size: 200%;
+    width: 200px;
+    top: 40vw;
+    left: -100px;
+    margin-left: 50%;
+    text-align: center;
+    /* border: 1px solid black; */
+}
+
+.pick-overlay {
+    display: block;
+    background-color: rgba( 255, 255, 0, 0.5 );
+    position: absolute;
+    z-index: 3;
+    top: 0px;
+    left: 0px;
+    /* width: 100vw; */
+    /* height: 100vh; */
+    width: calc( 50px * 7 );
+    height: calc( 50px * 7 );
+}
+
+.show {
+    visibility: visible;
+}
+
+.hidden {
+    visibility: hidden;
+}
